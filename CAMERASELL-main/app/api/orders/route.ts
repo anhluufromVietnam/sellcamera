@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAdminDb } from "@/lib/firebase-admin"
+import { getAdminDatabase } from "@/lib/firebase-admin"
 
 type PaymentMethod = "bank_transfer" | "cod"
 
@@ -43,64 +43,55 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Thiếu địa chỉ giao hàng COD" }, { status: 400 })
     }
 
-    const adminDb = getAdminDb()
-    const orderId = await adminDb.runTransaction(async (transaction) => {
-      const productRef = adminDb.collection("products").doc(payload.cameraId!)
-      const productSnapshot = await transaction.get(productRef)
+    const adminDb = getAdminDatabase()
+    const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    
+    // Get current stock
+    const productRef = `products/${payload.cameraId}`
+    const productSnapshot = await adminDb.ref(productRef).get()
+    
+    if (!productSnapshot.exists()) {
+      return NextResponse.json({ error: "Sản phẩm không tồn tại" }, { status: 404 })
+    }
 
-      if (!productSnapshot.exists) {
-        throw new Error("PRODUCT_NOT_FOUND")
-      }
+    const product = productSnapshot.val() || {}
+    const currentStock = Number(product.stock || 0)
+    if (currentStock <= 0 || product.status === "hidden") {
+      return NextResponse.json({ error: "Sản phẩm đã hết hàng" }, { status: 409 })
+    }
 
-      const product = productSnapshot.data() || {}
-      const currentStock = Number(product.stock || 0)
-      if (currentStock <= 0 || product.status === "hidden") {
-        throw new Error("OUT_OF_STOCK")
-      }
+    const nextStock = currentStock - 1
+    const orderRef = `orders/${orderId}`
 
-      const nextStock = currentStock - 1
-      const orderRef = adminDb.collection("orders").doc()
+    // Update stock
+    await adminDb.ref(productRef).update({
+      stock: nextStock,
+      status: nextStock === 0 ? "sold" : "active",
+    })
 
-      transaction.update(productRef, {
-        stock: nextStock,
-        status: nextStock === 0 ? "sold" : "active",
-      })
-
-      transaction.set(orderRef, {
-        cameraId: payload.cameraId,
-        cameraName: product.name || "Sản phẩm không rõ",
-        unitPrice: Number(product.salePrice ?? product.price ?? 0),
-        customerName,
-        customerEmail,
-        customerPhone,
-        pickupDate: payload.pickupDate || null,
-        pickupTime: payload.pickupTime || null,
-        shippingAddress: paymentMethod === "cod" ? shippingAddress : null,
-        shippingMethod: paymentMethod === "cod" ? "cod" : "pickup_or_transfer",
-        notes: payload.notes || "",
-        paymentAmount: Number(product.salePrice ?? product.price ?? 0),
-        paymentMethod,
-        paymentStatus: paymentMethod === "cod" ? "cod_pending" : "awaiting_confirmation",
-        transferContent: paymentMethod === "bank_transfer" ? payload.transferContent || null : null,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      })
-
-      return orderRef.id
+    // Create order
+    await adminDb.ref(orderRef).set({
+      cameraId: payload.cameraId,
+      cameraName: product.name || "Sản phẩm không rõ",
+      unitPrice: Number(product.salePrice ?? product.price ?? 0),
+      customerName,
+      customerEmail,
+      customerPhone,
+      pickupDate: payload.pickupDate || null,
+      pickupTime: payload.pickupTime || null,
+      shippingAddress: paymentMethod === "cod" ? shippingAddress : null,
+      shippingMethod: paymentMethod === "cod" ? "cod" : "pickup_or_transfer",
+      notes: payload.notes || "",
+      paymentAmount: Number(product.salePrice ?? product.price ?? 0),
+      paymentMethod,
+      paymentStatus: paymentMethod === "cod" ? "cod_pending" : "awaiting_confirmation",
+      transferContent: paymentMethod === "bank_transfer" ? payload.transferContent || null : null,
+      status: "pending",
+      createdAt: new Date().toISOString(),
     })
 
     return NextResponse.json({ orderId }, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : ""
-
-    if (message === "PRODUCT_NOT_FOUND") {
-      return NextResponse.json({ error: "Sản phẩm không tồn tại" }, { status: 404 })
-    }
-
-    if (message === "OUT_OF_STOCK") {
-      return NextResponse.json({ error: "Sản phẩm đã hết hàng" }, { status: 409 })
-    }
-
     console.error("Create order error:", error)
     return NextResponse.json({ error: "Không thể tạo đơn" }, { status: 500 })
   }

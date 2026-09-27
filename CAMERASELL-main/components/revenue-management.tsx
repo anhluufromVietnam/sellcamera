@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { collection, onSnapshot } from "firebase/firestore"
+import { ref as dbRef, onValue } from "firebase/database"
 import { BarChart3, Box, CalendarDays, Camera, CheckCircle2, Clock, TrendingUp } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -64,17 +64,21 @@ export function RevenueManagement() {
   const [customStart, setCustomStart] = useState(() => toDateValue(getPresetStart("month")))
   const [customEnd, setCustomEnd] = useState(() => toDateValue(new Date()))
 
-  useEffect(() => onSnapshot(collection(db, "orders"), (snapshot) => {
-    setOrders(snapshot.docs.map((document) => {
-      const order = document.data() as Partial<RevenueOrder>
-      return {
-        id: document.id,
-        unitPrice: Number(order.unitPrice ?? 0),
-        status: order.status || "pending",
-        createdAt: order.createdAt || "",
-      }
-    }))
-  }), [])
+  useEffect(() => {
+    const ordersRef = dbRef(database, "orders")
+    return onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setOrders(Object.keys(data).map((key) => {
+        const order = data[key] as Partial<RevenueOrder>
+        return {
+          id: key,
+          unitPrice: Number(order.unitPrice ?? 0),
+          status: order.status || "pending",
+          createdAt: order.createdAt || "",
+        }
+      }))
+    })
+  }, [])
 
   const activeRangeLabel = useMemo(() => {
     if (mode === "custom") {

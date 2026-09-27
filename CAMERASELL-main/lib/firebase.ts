@@ -1,25 +1,25 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
-import { getFirestore, type Firestore } from "firebase/firestore"
 import { getStorage, type FirebaseStorage } from "firebase/storage"
 import { getAuth, type Auth } from "firebase/auth"
+import { getDatabase, type Database } from "firebase/database"
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAEXYj965-Vp6K-E-TdeqYxTTQFWuHkE7I",
-  authDomain: "may-anh-daeda.firebaseapp.com",
-  projectId: "may-anh-daeda",
-  storageBucket: "may-anh-daeda.firebasestorage.app",
-  messagingSenderId: "120908784917",
-  appId: "1:120908784917:web:0b4b522816d6d95af4751c",
-  measurementId: "G-HKRXK5K4D4"
+  apiKey: "AIzaSyB1e8lXQAPLsexgUuaqjThmtGE5byJDBlU",
+  authDomain: "nchupchoet.firebaseapp.com",
+  projectId: "nchupchoet",
+  storageBucket: "nchupchoet.firebasestorage.app",
+  messagingSenderId: "535764584365",
+  appId: "1:535764584365:web:b1957fa4f4fc9f5ba04324",
+  measurementId: "G-G0RNP4W8CN"
 };
 
 // ✅ Kiểm tra nếu app đã được khởi tạo, dùng lại app cũ — tránh duplicate
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 
-export const db: Firestore = getFirestore(app)
 export const storage: FirebaseStorage = getStorage(app)
 export const auth: Auth = getAuth(app)
+export const database: Database = getDatabase(app)
 
 export { app }

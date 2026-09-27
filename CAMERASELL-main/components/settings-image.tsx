@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { ref as dbRef, set, get, remove, onValue, query, orderByChild, equalTo } from "firebase/database"
+import { database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -55,10 +55,10 @@ export function SettingsImage() {
 
   const fetchSettings = async () => {
     try {
-      const settingsRef = doc(db, "settings", "payment")
-      const snapshot = await getDoc(settingsRef)
+      const settingsRef = dbRef(database, "settings/payment")
+      const snapshot = await get(settingsRef)
       if (snapshot.exists()) {
-        const data = snapshot.data()
+        const data = snapshot.val() || {}
         setQrUrl(data.qrUrl || "")
         setBankName(data.bankName || "")
         setAccountNumber(data.accountNumber || "")
@@ -102,8 +102,8 @@ export function SettingsImage() {
         setQrUrl(finalQrUrl)
       }
 
-      const settingsRef = doc(db, "settings", "payment")
-      await setDoc(settingsRef, {
+      const settingsRef = dbRef(database, "settings/payment")
+      await set(settingsRef, {
         qrUrl: finalQrUrl,
         bankName,
         accountNumber,

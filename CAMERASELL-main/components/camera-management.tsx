@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore"
+import { ref as dbRef, set, get, remove, onValue, query, orderByChild, equalTo } from "firebase/database"
 import { Camera, Edit, Package, Plus, Search, Trash2, X } from "lucide-react"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,8 +54,10 @@ export function CameraManagement() {
   const { toast } = useToast()
 
   useEffect(() => {
-    return onSnapshot(collection(db, "products"), (snapshot) => {
-      setCameras(snapshot.docs.map((document) => normalizeCameraListing(document.id, document.data() as Partial<CameraListing> & { price?: number })))
+    const productsRef = dbRef(database, "products")
+    return onValue(productsRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setCameras(Object.keys(data).map((key) => normalizeCameraListing(key, data[key] as Partial<CameraListing> & { price?: number })))
     }, () => {
       try {
         const saved = localStorage.getItem("cameras")
@@ -83,10 +85,11 @@ export function CameraManagement() {
 
   const addCamera = async (rawData: Omit<CameraListing, "id">) => {
     const data = normalizeStatus(rawData)
+    const id = Date.now().toString()
     try {
-      await addDoc(collection(db, "products"), data)
+      await set(dbRef(database, "products/" + id), data)
     } catch {
-      saveLocal([...cameras, { ...data, id: Date.now().toString() }])
+      saveLocal([...cameras, { ...data, id }])
     }
     setIsAddOpen(false)
     toast({ title: "Đã đăng bán", description: "Tin đăng máy ảnh đã được lưu." })
@@ -96,7 +99,7 @@ export function CameraManagement() {
     if (!editingCamera) return
     const data = normalizeStatus(rawData)
     try {
-      await setDoc(doc(db, "products", editingCamera.id), data, { merge: true })
+      await set(dbRef(database, "products/" + editingCamera.id), data)
     } catch {
       saveLocal(cameras.map((camera) => camera.id === editingCamera.id ? { ...data, id: camera.id } : camera))
     }
@@ -107,7 +110,7 @@ export function CameraManagement() {
   const deleteCamera = async (camera: CameraListing) => {
     if (!window.confirm(`Xóa tin đăng "${camera.name}"?`)) return
     try {
-      await deleteDoc(doc(db, "products", camera.id))
+      await remove(dbRef(database, "products/" + camera.id))
     } catch {
       saveLocal(cameras.filter((item) => item.id !== camera.id))
     }

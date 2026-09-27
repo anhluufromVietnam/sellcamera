@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { collection, onSnapshot } from "firebase/firestore"
+import { ref as dbRef, onValue } from "firebase/database"
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Package, Truck } from "lucide-react"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/firebase"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,24 +44,28 @@ export function SalesCalendar() {
   const [viewDate, setViewDate] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState(() => toDateValue(new Date()))
 
-  useEffect(() => onSnapshot(collection(db, "orders"), (snapshot) => {
-    setOrders(snapshot.docs.map((document) => {
-      const order = document.data() as Partial<CalendarOrder>
-      return {
-        id: document.id,
-        cameraName: order.cameraName || "Sản phẩm không rõ",
-        customerName: order.customerName || "Khách hàng",
-        customerPhone: order.customerPhone || "",
-        pickupDate: order.pickupDate ?? null,
-        pickupTime: order.pickupTime ?? null,
-        shippingAddress: order.shippingAddress ?? null,
-        shippingMethod: order.shippingMethod || "",
-        paymentMethod: order.paymentMethod || "",
-        status: order.status || "pending",
-        createdAt: order.createdAt || "",
-      }
-    }))
-  }), [])
+  useEffect(() => {
+    const ordersRef = dbRef(database, "orders")
+    return onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setOrders(Object.keys(data).map((key) => {
+        const order = data[key] as Partial<CalendarOrder>
+        return {
+          id: key,
+          cameraName: order.cameraName || "Sản phẩm không rõ",
+          customerName: order.customerName || "Khách hàng",
+          customerPhone: order.customerPhone || "",
+          pickupDate: order.pickupDate ?? null,
+          pickupTime: order.pickupTime ?? null,
+          shippingAddress: order.shippingAddress ?? null,
+          shippingMethod: order.shippingMethod || "",
+          paymentMethod: order.paymentMethod || "",
+          status: order.status || "pending",
+          createdAt: order.createdAt || "",
+        }
+      }))
+    })
+  }, [])
 
   const monthDays = useMemo(() => {
     const year = viewDate.getFullYear()

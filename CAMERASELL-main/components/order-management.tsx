@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { collection, doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore"
+import { ref as dbRef, set, get, remove, onValue, query, orderByChild, equalTo, runTransaction, update } from "firebase/database"
 import { CheckCircle, Clock, CreditCard, MapPin, Package, Search, Truck, XCircle } from "lucide-react"
-import { db } from "@/lib/firebase"
+import { database } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,31 +55,35 @@ export function OrderManagement() {
   const [filter, setFilter] = useState("all")
   const { toast } = useToast()
 
-  useEffect(() => onSnapshot(collection(db, "orders"), (snapshot) => {
-    setOrders(snapshot.docs.map((document) => {
-      const order = document.data() as Partial<Order>
-      return {
-        id: document.id,
-        cameraId: order.cameraId || "",
-        cameraName: order.cameraName || "Sản phẩm không rõ",
-        customerName: order.customerName || "Khách hàng",
-        customerEmail: order.customerEmail || "",
-        customerPhone: order.customerPhone || "",
-        unitPrice: Number(order.unitPrice ?? 0),
-        pickupDate: order.pickupDate ?? null,
-        pickupTime: order.pickupTime ?? null,
-        shippingAddress: order.shippingAddress ?? null,
-        shippingMethod: order.shippingMethod || "",
-        notes: order.notes || "",
-        paymentAmount: Number(order.paymentAmount ?? order.unitPrice ?? 0),
-        paymentMethod: order.paymentMethod || "bank_transfer",
-        paymentStatus: order.paymentStatus || "awaiting_confirmation",
-        transferContent: order.transferContent || "",
-        status: order.status || "pending",
-        createdAt: order.createdAt || "",
-      } satisfies Order
-    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
-  }), [])
+  useEffect(() => {
+    const ordersRef = dbRef(database, "orders")
+    return onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val() || {}
+      setOrders(Object.keys(data).map((key) => {
+        const order = data[key] as Partial<Order>
+        return {
+          id: key,
+          cameraId: order.cameraId || "",
+          cameraName: order.cameraName || "Sản phẩm không rõ",
+          customerName: order.customerName || "Khách hàng",
+          customerEmail: order.customerEmail || "",
+          customerPhone: order.customerPhone || "",
+          unitPrice: Number(order.unitPrice ?? 0),
+          pickupDate: order.pickupDate ?? null,
+          pickupTime: order.pickupTime ?? null,
+          shippingAddress: order.shippingAddress ?? null,
+          shippingMethod: order.shippingMethod || "",
+          notes: order.notes || "",
+          paymentAmount: Number(order.paymentAmount ?? order.unitPrice ?? 0),
+          paymentMethod: order.paymentMethod || "bank_transfer",
+          paymentStatus: order.paymentStatus || "awaiting_confirmation",
+          transferContent: order.transferContent || "",
+          status: order.status || "pending",
+          createdAt: order.createdAt || "",
+        } satisfies Order
+      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+    })
+  }, [])
 
   const visible = useMemo(() => orders.filter((order) =>
     (filter === "all" || order.status === filter) &&
@@ -88,7 +92,7 @@ export function OrderManagement() {
   ), [orders, query, filter])
 
   const confirmBankPaymentAndOrder = async (id: string) => {
-    await updateDoc(doc(db, "orders", id), {
+    await update(dbRef(database, "orders/" + id), {
       paymentStatus: "confirmed",
       status: "confirmed",
     })
@@ -96,7 +100,7 @@ export function OrderManagement() {
   }
 
   const confirmCodOrder = async (id: string) => {
-    await updateDoc(doc(db, "orders", id), {
+    await update(dbRef(database, "orders/" + id), {
       status: "confirmed",
       paymentStatus: "cod_pending",
     })
@@ -105,7 +109,7 @@ export function OrderManagement() {
 
   const completeOrder = async (order: Order) => {
     const isCod = order.paymentMethod === "cod"
-    await updateDoc(doc(db, "orders", order.id), {
+    await update(dbRef(database, "orders/" + order.id), {
       status: "completed",
       ...(isCod ? { paymentStatus: "paid_on_delivery" } : { paymentStatus: "confirmed" }),
     })
@@ -117,34 +121,32 @@ export function OrderManagement() {
 
   const cancelOrder = async (order: Order) => {
     try {
-      await runTransaction(db, async (transaction) => {
-        const orderRef = doc(db, "orders", order.id)
-        const orderSnapshot = await transaction.get(orderRef)
-        if (!orderSnapshot.exists()) throw new Error("Order not found")
+      const ordersRef = dbRef(database, "orders/" + order.id)
+      const orderSnapshot = await get(ordersRef)
+      if (!orderSnapshot.exists()) throw new Error("Order not found")
 
-        const latestOrder = orderSnapshot.data() as Partial<Order>
-        if (latestOrder.status === "cancelled") return
+      const latestOrder = orderSnapshot.val() as Partial<Order>
+      if (latestOrder.status === "cancelled") return
 
-        const cameraId = latestOrder.cameraId || order.cameraId
-        let currentStock: number | null = null
-        let productRef: ReturnType<typeof doc> | null = null
+      const cameraId = latestOrder.cameraId || order.cameraId
+      let currentStock: number | null = null
+      let productRef: ReturnType<typeof dbRef> | null = null
 
-        if (cameraId) {
-          productRef = doc(db, "products", cameraId)
-          const productSnapshot = await transaction.get(productRef)
-          currentStock = productSnapshot.exists() ? Number(productSnapshot.data().stock || 0) : null
-        }
+      if (cameraId) {
+        productRef = dbRef(database, "products/" + cameraId)
+        const productSnapshot = await get(productRef)
+        currentStock = productSnapshot.exists() ? Number(productSnapshot.val()?.stock || 0) : null
+      }
 
-        transaction.update(orderRef, {
-          status: "cancelled",
-          cancelledAt: new Date().toISOString(),
-          stockRestored: Boolean(productRef && currentStock !== null),
-        })
-
-        if (productRef && currentStock !== null) {
-          transaction.update(productRef, { stock: currentStock + 1, status: "active" })
-        }
+      await update(ordersRef, {
+        status: "cancelled",
+        cancelledAt: new Date().toISOString(),
+        stockRestored: Boolean(productRef && currentStock !== null),
       })
+
+      if (productRef && currentStock !== null) {
+        await update(productRef, { stock: currentStock + 1, status: "active" })
+      }
       toast({ title: "Đã hủy đơn", description: "Số lượng máy ảnh đã được hoàn lại vào kho." })
     } catch {
       toast({ title: "Không thể hủy đơn", description: "Vui lòng thử lại sau.", variant: "destructive" })

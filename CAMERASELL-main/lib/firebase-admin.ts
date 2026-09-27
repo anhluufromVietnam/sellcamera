@@ -1,7 +1,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app"
-import { getFirestore } from "firebase-admin/firestore"
+import { getDatabase } from "firebase-admin/database"
 
-export function getAdminDb() {
+export function getAdminDatabase() {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n")
 
   if (!getApps().length) {
@@ -15,8 +15,9 @@ export function getAdminDb() {
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey,
       }),
+      databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
     })
   }
 
-  return getFirestore()
+  return getDatabase()
 }

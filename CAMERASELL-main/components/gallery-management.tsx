@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import { addDoc, collection, deleteDoc, doc, getDocs } from "firebase/firestore"
-import { db, storage } from "@/lib/firebase"
+import { ref as dbRef, set, get, remove } from "firebase/database"
+import { storage, database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -32,12 +32,14 @@ export function GalleryManagement() {
 
   const loadImages = async () => {
     try {
-      const snapshot = await getDocs(collection(db, "gallery"))
+      const galleryRef = dbRef(database, "gallery")
+      const snapshot = await get(galleryRef)
 
-      if (!snapshot.empty) {
-        const imageList = snapshot.docs.map((document) => ({
-          id: document.id,
-          ...(document.data() as Omit<GalleryImage, "id">),
+      if (snapshot.exists()) {
+        const data = snapshot.val()
+        const imageList = Object.keys(data).map((key) => ({
+          id: key,
+          ...data[key],
         }))
         setImages(imageList.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()))
       }
@@ -69,8 +71,9 @@ export function GalleryManagement() {
         await uploadBytes(storageRef, file)
         const url = await getDownloadURL(storageRef)
 
-        // Save metadata to Firestore
-        await addDoc(collection(db, "gallery"), {
+        // Save metadata to Realtime Database
+        const imageId = `img_${timestamp}_${i}`
+        await set(dbRef(database, `gallery/${imageId}`), {
           url,
           name: file.name,
           uploadedAt: new Date().toISOString(),
@@ -106,8 +109,8 @@ export function GalleryManagement() {
         await deleteObject(storageRef)
       }
 
-      // Delete from Firestore
-      await deleteDoc(doc(db, "gallery", image.id))
+      // Delete from Realtime Database
+      await remove(dbRef(database, `gallery/${image.id}`))
 
       toast({
         title: "Đã xóa",
