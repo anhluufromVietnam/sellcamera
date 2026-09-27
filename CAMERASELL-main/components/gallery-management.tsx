@@ -3,9 +3,8 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { ref as dbRef, set, get, remove } from "firebase/database"
-import { storage, database } from "@/lib/firebase"
+import { database } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -61,21 +60,27 @@ export function GalleryManagement() {
 
     setUploading(true)
     try {
+      const formData = new FormData()
+      formData.append("cameraName", "gallery")
       for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const timestamp = Date.now()
-        const fileName = `${timestamp}_${file.name}`
-        const storageRef = ref(storage, `gallery/${fileName}`)
+        formData.append("files", files[i])
+      }
 
-        // Upload file to Firebase Storage
-        await uploadBytes(storageRef, file)
-        const url = await getDownloadURL(storageRef)
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
 
-        // Save metadata to Realtime Database
-        const imageId = `img_${timestamp}_${i}`
+      if (!response.ok) throw new Error("Upload failed")
+
+      const { urls } = await response.json()
+
+      // Save metadata to Realtime Database
+      for (let i = 0; i < urls.length; i++) {
+        const imageId = `img_${Date.now()}_${i}`
         await set(dbRef(database, `gallery/${imageId}`), {
-          url,
-          name: file.name,
+          url: urls[i],
+          name: files[i].name,
           uploadedAt: new Date().toISOString(),
         })
       }
@@ -102,12 +107,12 @@ export function GalleryManagement() {
     if (!confirm(`Xóa ảnh "${image.name}"?`)) return
 
     try {
-      // Delete from Storage
-      const fileName = image.url.split("/").pop()?.split("?")[0]
-      if (fileName) {
-        const storageRef = ref(storage, `gallery/${decodeURIComponent(fileName)}`)
-        await deleteObject(storageRef)
-      }
+      // Delete from local storage via API
+      await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: image.url }),
+      })
 
       // Delete from Realtime Database
       await remove(dbRef(database, `gallery/${image.id}`))

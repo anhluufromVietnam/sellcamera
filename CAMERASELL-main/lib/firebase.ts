@@ -1,5 +1,4 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
-import { getStorage, type FirebaseStorage } from "firebase/storage"
 import { getAuth, type Auth } from "firebase/auth"
 import { getDatabase, type Database } from "firebase/database"
 
@@ -18,7 +17,6 @@ const firebaseConfig = {
 // ✅ Kiểm tra nếu app đã được khởi tạo, dùng lại app cũ — tránh duplicate
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 
-export const storage: FirebaseStorage = getStorage(app)
 export const auth: Auth = getAuth(app)
 export const database: Database = getDatabase(app)
 
