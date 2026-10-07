@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Camera, Menu, ShoppingBag, X } from "lucide-react"
+import { Camera, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PublicBooking } from "@/components/public-booking"
 
@@ -48,42 +48,6 @@ export default function MarketplacePage() {
       </header>
 
       <main>
-        <section className="relative overflow-hidden px-4 py-14 sm:py-24">
-          <div className="container relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_0.9fr]">
-            <div className="text-center lg:text-left">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full glass-light px-4 py-2 text-sm">
-                <ShoppingBag className="h-4 w-4 text-pink-500" aria-hidden="true" />
-                Mua bán máy ảnh dễ dàng
-              </div>
-              <h2 className="text-balance text-4xl font-bold leading-tight sm:text-6xl">
-                <span className="text-pink-500">Tìm chiếc máy</span>
-                <br />
-                kể chuyện cùng bạn
-              </h2>
-              <p className="mx-auto mt-6 max-w-2xl text-lg text-foreground/70 lg:mx-0">
-                Những thân máy có cá tính, những khung hình đang chờ được kể. Khám phá, chọn lựa và sở hữu chiếc máy hợp với cách bạn nhìn thế giới.
-              </p>
-              <Button size="lg" className="mt-8 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-500 px-8 text-white" onClick={() => document.getElementById("listings")?.scrollIntoView({ behavior: "smooth" })}>
-                Xem máy ảnh
-              </Button>
-            </div>
-
-            <div className="relative mx-auto grid w-full max-w-md grid-cols-2 gap-3 sm:gap-4" aria-label="Ảnh tham khảo phong cách nhiếp ảnh">
-              <div className="space-y-3 pt-8 sm:space-y-4">
-                <img src={referenceImages[0].src} alt={referenceImages[0].alt} width={1366} height={2049} fetchPriority="high" className="aspect-[2/3] w-full rounded-[2rem] bg-black/5 object-contain shadow-2xl" />
-                <div className="glass-card rounded-[1.5rem] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-pink-500">chupchoet.camera</p>
-                  <p className="mt-2 font-serif text-lg italic">Look closer.</p>
-                </div>
-              </div>
-              <div className="space-y-3 sm:space-y-4">
-                <img src={referenceImages[2].src} alt={referenceImages[2].alt} width={2730} height={4095} className="aspect-[2/3] w-full rounded-[2rem] bg-black/5 object-contain shadow-2xl" />
-                <img src={referenceImages[3].src} alt={referenceImages[3].alt} width={1170} height={1708} className="aspect-[2/3] w-full rounded-[2rem] bg-black/5 object-contain shadow-2xl" />
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section id="listings" className="container mx-auto px-4 py-12 sm:px-6 sm:py-20">
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-bold sm:text-4xl">Máy ảnh đang được đăng bán</h2>
